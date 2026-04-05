@@ -499,7 +499,9 @@
     ];
     const TABLE_NAMES = SCHEMA_INFO.map(t => t.name);
     const COL_NAMES = [...new Set(SCHEMA_INFO.flatMap(t => t.cols.map(c => c[0])))];
-    const ALL_WORDS = [...SQL_KEYWORDS, ...TABLE_NAMES, ...COL_NAMES];
+    // Map table → columns for contextual suggestions
+    const TABLE_COLS = {};
+    SCHEMA_INFO.forEach(t => { TABLE_COLS[t.name] = t.cols.map(c => c[0]); });
 
     const acBox = document.createElement('div');
     acBox.className = 'pg-autocomplete';
@@ -517,18 +519,38 @@
         return match ? { word: match[0], start: pos - match[0].length, end: pos } : null;
     }
 
+    // Extract table names from FROM/JOIN clauses in current query
+    function getTablesInQuery() {
+        const text = editorEl.value.toUpperCase();
+        const tables = [];
+        const re = /\b(?:FROM|JOIN)\s+([\w_]+)/gi;
+        let m;
+        while ((m = re.exec(editorEl.value)) !== null) {
+            const tname = m[1].toLowerCase();
+            if (TABLE_COLS[tname]) tables.push(tname);
+        }
+        return tables;
+    }
+
     function showAutocomplete() {
         const info = getWordAtCursor();
         if (!info || info.word.length < 2) { acBox.style.display = 'none'; return; }
 
         const prefix = info.word.toUpperCase();
-        acItems = ALL_WORDS.filter(w => w.toUpperCase().startsWith(prefix) && w.toUpperCase() !== prefix).slice(0, 8);
+
+        // Build contextual word list: prioritize columns from tables in query
+        const queryTables = getTablesInQuery();
+        const contextCols = [...new Set(queryTables.flatMap(t => TABLE_COLS[t] || []))];
+        const otherCols = COL_NAMES.filter(c => !contextCols.includes(c));
+        const allWords = [...contextCols, ...TABLE_NAMES, ...SQL_KEYWORDS, ...otherCols];
+
+        acItems = allWords.filter(w => w.toUpperCase().startsWith(prefix) && w.toUpperCase() !== prefix).slice(0, 8);
 
         if (acItems.length === 0) { acBox.style.display = 'none'; return; }
 
         acIndex = 0;
         acBox.innerHTML = acItems.map((item, i) => {
-            const isSql = SQL_KEYWORDS.includes(item);
+            const isSql = SQL_KEYWORDS.includes(item.toUpperCase());
             const isTable = TABLE_NAMES.includes(item);
             const tag = isSql ? 'keyword' : isTable ? 'table' : 'column';
             return `<div class="pg-ac-item ${i === 0 ? 'active' : ''}" data-index="${i}">
@@ -579,6 +601,26 @@
 
     editorEl.addEventListener('blur', () => {
         setTimeout(() => { acBox.style.display = 'none'; }, 150);
+    });
+
+    // ── Theme Toggle ──
+    const themeToggle = $('themeToggle');
+    const savedTheme = localStorage.getItem('sql_pg_theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        if (isLight) {
+            document.documentElement.removeAttribute('data-theme');
+            themeToggle.textContent = '🌙';
+            localStorage.setItem('sql_pg_theme', 'dark');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            themeToggle.textContent = '☀️';
+            localStorage.setItem('sql_pg_theme', 'light');
+        }
     });
 
     function showToast(msg) {

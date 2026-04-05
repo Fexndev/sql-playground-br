@@ -60,3 +60,38 @@
     --mono: 'JetBrains Mono', 'Fira Code', monospace;
     --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
+
+/* ── Light Mode ── */
+[data-theme="light"] {
+    --bg-0: #f8f9fa;
+    --bg-1: #ffffff;
+    --bg-2: #f0f1f3;
+    --bg-3: #e4e6ea;
+
+    --accent: #0d9488;
+    --accent-lt: #14b8a6;
+    --accent-dk: #0f766e;
+    --accent-bg: rgba(13,148,136,.06);
+    --accent-bd: rgba(13,148,136,.18);
+
+    --white: #1a1a2e;
+    --g1: #4a4a5a;
+    --g2: #8a8a9a;
+    --g3: #c0c0cc;
+
+    --c-tech: #0d9488;
+    --c-tech-bg: rgba(13,148,136,.06);
+    --c-tech-bd: rgba(13,148,136,.18);
+    --c-design: #7c3aed;
+    --c-design-bg: rgba(124,58,237,.06);
+    --c-design-bd: rgba(124,58,237,.18);
+    --c-trafego: #d97706;
+    --c-trafego-bg: rgba(217,119,6,.06);
+    --c-trafego-bd: rgba(217,119,6,.18);
+    --c-social: #2563eb;
+    --c-social-bg: rgba(37,99,235,.06);
+    --c-social-bd: rgba(37,99,235,.18);
+    --c-automacao: #16a34a;
+    --c-automacao-bg: rgba(22,163,74,.06);
+    --c-automacao-bd: rgba(22,163,74,.18);
+}
