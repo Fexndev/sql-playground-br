@@ -8,8 +8,9 @@
 
     // ── State ──
     let db = null;
-    let dbEngine = null; // 'pglite' or 'sqljs'
+    let dbEngine = null;
     let dbReady = false;
+    let isRunning = false;
     let activeChallenge = null;
     const MAX_ROWS = 200;
 
@@ -33,9 +34,14 @@
     const challengeDetail = $('challengeDetail');
     const toastEl = $('toast');
     const statusEl = $('dbStatus');
+    const shortcutEl = $('shortcutHint');
+
+    // ── Detect Mac for shortcut display ──
+    const isMac = /mac/i.test(navigator.platform || navigator.userAgent);
+    if (shortcutEl) shortcutEl.textContent = isMac ? '⌘+Enter' : 'Ctrl+Enter';
 
     // ══════════════════════════════════════
-    // PHASE 1: Render UI immediately
+    // SCHEMA INFO (static, renders immediately)
     // ══════════════════════════════════════
 
     const SCHEMA_INFO = [
@@ -64,7 +70,75 @@
         ]}
     ];
 
-    // Render schema sidebar
+    const TABLE_COLS = {};
+    SCHEMA_INFO.forEach(t => { TABLE_COLS[t.name] = t.cols.map(c => c[0]); });
+    const TABLE_NAMES = SCHEMA_INFO.map(t => t.name);
+    const COL_NAMES = [...new Set(SCHEMA_INFO.flatMap(t => t.cols.map(c => c[0])))];
+
+    // ══════════════════════════════════════
+    // SHARED: executeSQL (eliminates duplication)
+    // ══════════════════════════════════════
+
+    async function executeSQL(sql) {
+        if (dbEngine === 'pglite') {
+            const isSelect = /^\s*(SELECT|WITH)\b/i.test(sql);
+            if (isSelect) {
+                const result = await db.query(sql);
+                const rows = result.rows || [];
+                const colNames = rows.length > 0 ? Object.keys(rows[0]) : [];
+                return { rows, colNames };
+            }
+            await db.exec(sql);
+            return { rows: [], colNames: [], isExec: true };
+        }
+        // sql.js
+        const result = db.exec(sql);
+        if (result.length > 0) {
+            const colNames = result[0].columns;
+            const rows = result[0].values.map(vals => {
+                const obj = {};
+                colNames.forEach((c, i) => obj[c] = vals[i]);
+                return obj;
+            });
+            return { rows, colNames };
+        }
+        return { rows: [], colNames: [], isExec: true };
+    }
+
+    // ══════════════════════════════════════
+    // SHARED: Render result table HTML
+    // ══════════════════════════════════════
+
+    function renderResultTable(rows, colNames, elapsed) {
+        const totalRows = rows.length;
+        const truncated = totalRows > MAX_ROWS;
+        const displayRows = truncated ? rows.slice(0, MAX_ROWS) : rows;
+
+        let html = `<div class="pg-results-info"><strong>${totalRows}</strong> linha${totalRows !== 1 ? 's' : ''} em ${elapsed}s`;
+        if (truncated) html += ` <span class="pg-truncated">— exibindo ${MAX_ROWS} de ${totalRows}</span>`;
+        html += `</div>`;
+        html += '<div class="pg-table-scroll"><table class="pg-result-table"><thead><tr>';
+        colNames.forEach(c => html += `<th>${c}</th>`);
+        html += '</tr></thead><tbody>';
+
+        displayRows.forEach(row => {
+            html += '<tr>';
+            colNames.forEach(c => {
+                let val = row[c];
+                if (val === null || val === undefined) val = '<span class="null-val">NULL</span>';
+                else if (typeof val === 'number') val = fmtNumber(val);
+                html += `<td>${val}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    // ══════════════════════════════════════
+    // PHASE 1: Render UI immediately
+    // ══════════════════════════════════════
+
     function renderSchema() {
         const el = $('schemaList');
         el.innerHTML = SCHEMA_INFO.map(t => `
@@ -81,24 +155,14 @@
             </div>
         `).join('');
 
-        // Click header to toggle
         el.addEventListener('click', (e) => {
             const header = e.target.closest('.pg-table-header');
-            if (header) {
-                header.parentElement.classList.toggle('open');
-                return;
-            }
-
-            // Click "Visualizar tabela"
+            if (header) { header.parentElement.classList.toggle('open'); return; }
             const inspectBtn = e.target.closest('.pg-btn-inspect');
-            if (inspectBtn) {
-                inspectTable(inspectBtn.dataset.table);
-                return;
-            }
+            if (inspectBtn) { inspectTable(inspectBtn.dataset.table); return; }
         });
     }
 
-    // Render challenges sidebar
     function renderChallenges() {
         const el = $('challengeList');
         el.innerHTML = CHALLENGES.map(ch => `
@@ -124,7 +188,6 @@
         if (!ch) return;
         activeChallenge = ch;
 
-        // Highlight
         document.querySelectorAll('.pg-challenge').forEach(el => {
             el.classList.toggle('active', +el.dataset.id === id);
         });
@@ -145,23 +208,18 @@
             <div class="pg-solution" id="solutionBox"><pre>${ch.solution}</pre></div>
         `;
 
-        // Toggle buttons
         challengeDetail.querySelectorAll('.pg-toggle-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.toggle;
                 if (action === 'hint') $('hintBox').classList.toggle('visible');
                 if (action === 'solution') $('solutionBox').classList.toggle('visible');
-                if (action === 'use') {
-                    editorEl.value = ch.solution;
-                    editorEl.focus();
-                }
+                if (action === 'use') { editorEl.value = ch.solution; editorEl.focus(); }
             });
         });
 
         editorEl.placeholder = `-- ${ch.title}\n-- Escreva sua query aqui...`;
     }
 
-    // Render quick examples
     function renderExamples() {
         const el = $('quickExamples');
         if (!el) return;
@@ -177,19 +235,17 @@
         });
     }
 
-    // ── Inspect Table ──
     async function inspectTable(tableName) {
         const table = SCHEMA_INFO.find(t => t.name === tableName);
         if (!table) return;
 
-        // Build schema view
         let html = `<div class="pg-inspect">`;
+        html += `<button class="pg-btn-back" id="btnBack">← Voltar</button>`;
         html += `<div class="pg-inspect-header">`;
         html += `<h3>${tableName}</h3>`;
         html += `<span class="pg-inspect-count">${table.count} registros</span>`;
         html += `</div>`;
 
-        // Columns table
         html += `<div class="pg-inspect-section">`;
         html += `<div class="pg-inspect-label">Estrutura</div>`;
         html += `<table class="pg-result-table"><thead><tr><th>Coluna</th><th>Tipo</th></tr></thead><tbody>`;
@@ -198,45 +254,14 @@
         });
         html += `</tbody></table></div>`;
 
-        // Preview data if DB ready
         if (dbReady) {
             try {
-                let rows = [], colNames = [];
-                const sql = `SELECT * FROM ${tableName} LIMIT 20`;
-
-                if (dbEngine === 'pglite') {
-                    const result = await db.query(sql);
-                    rows = result.rows || [];
-                    if (rows.length > 0) colNames = Object.keys(rows[0]);
-                } else {
-                    const result = db.exec(sql);
-                    if (result.length > 0) {
-                        colNames = result[0].columns;
-                        rows = result[0].values.map(vals => {
-                            const obj = {};
-                            colNames.forEach((col, i) => obj[col] = vals[i]);
-                            return obj;
-                        });
-                    }
-                }
-
+                const { rows, colNames } = await executeSQL(`SELECT * FROM ${tableName} LIMIT 20`);
                 if (rows.length > 0) {
                     html += `<div class="pg-inspect-section">`;
                     html += `<div class="pg-inspect-label">Preview (20 primeiras linhas)</div>`;
-                    html += `<div class="pg-table-scroll"><table class="pg-result-table"><thead><tr>`;
-                    colNames.forEach(c => html += `<th>${c}</th>`);
-                    html += `</tr></thead><tbody>`;
-                    rows.forEach(row => {
-                        html += '<tr>';
-                        colNames.forEach(c => {
-                            let val = row[c];
-                            if (val === null || val === undefined) val = '<span class="null-val">NULL</span>';
-                            else if (typeof val === 'number') val = fmtNumber(val);
-                            html += `<td>${val}</td>`;
-                        });
-                        html += '</tr>';
-                    });
-                    html += `</tbody></table></div></div>`;
+                    html += renderResultTable(rows, colNames, '0.000');
+                    html += `</div>`;
                 }
             } catch (err) {
                 html += `<div class="pg-error" style="margin-top:.8rem">${err.message}</div>`;
@@ -247,11 +272,15 @@
 
         html += `<button class="pg-btn-query-table" data-table="${tableName}">Consultar no editor →</button>`;
         html += `</div>`;
-
         resultsEl.innerHTML = html;
 
-        // Button to send to editor
-        resultsEl.querySelector('.pg-btn-query-table').addEventListener('click', () => {
+        $('btnBack').addEventListener('click', () => {
+            resultsEl.innerHTML = '<div class="pg-empty"><div class="pg-empty-icon">🔍</div><p>Explore os dados do governo federal</p><small>Escolha um exemplo ou escreva sua query</small><div class="pg-quick-examples" id="quickExamples"></div></div>';
+            renderExamples();
+        });
+
+        const queryBtn = resultsEl.querySelector('.pg-btn-query-table');
+        if (queryBtn) queryBtn.addEventListener('click', () => {
             editorEl.value = `SELECT * FROM ${tableName} LIMIT 50;`;
             editorEl.focus();
         });
@@ -272,7 +301,6 @@
     renderExamples();
     updateProgress();
 
-    // Show app, hide loading overlay but show inline status
     loadingEl.style.display = 'none';
     appEl.classList.add('ready');
     setStatus('loading', 'Carregando banco...');
@@ -286,7 +314,6 @@
         const { PGlite } = await import('https://cdn.jsdelivr.net/npm/@electric-sql/pglite/dist/index.js');
         db = new PGlite();
         dbEngine = 'pglite';
-
         await db.exec(SEED_SCHEMA);
         const lines = SEED_DATA.split('\n').filter(l => l.trim());
         for (let i = 0; i < lines.length; i += 100) {
@@ -300,8 +327,6 @@
         });
         db = new SQL.Database();
         dbEngine = 'sqljs';
-
-        // SQLite-compatible schema (remove SERIAL, use INTEGER PRIMARY KEY)
         const sqliteSchema = SEED_SCHEMA
             .replace(/SERIAL PRIMARY KEY/g, 'INTEGER PRIMARY KEY AUTOINCREMENT')
             .replace(/NUMERIC\(\d+,\d+\)/g, 'REAL')
@@ -309,17 +334,14 @@
             .replace(/CHAR\(\d+\)/g, 'TEXT')
             .replace(/VARCHAR/g, 'TEXT')
             .replace(/INTEGER NOT NULL/g, 'INTEGER');
-
         db.run(sqliteSchema);
-
         const lines = SEED_DATA.split('\n').filter(l => l.trim());
         for (const line of lines) {
-            try { db.run(line); } catch(e) { /* skip errors */ }
+            try { db.run(line); } catch(e) { /* skip */ }
         }
     }
 
     async function initDB() {
-        // Try PGlite first
         try {
             await initPGlite();
             setStatus('active', 'PostgreSQL ativo');
@@ -327,12 +349,9 @@
             dbReady = true;
             return;
         } catch (err) {
-            console.warn('PGlite failed, trying sql.js fallback:', err.message);
+            console.warn('PGlite failed:', err.message);
         }
-
-        // Fallback: sql.js
         try {
-            // Load sql.js script
             await new Promise((resolve, reject) => {
                 const s = document.createElement('script');
                 s.src = 'https://sql.js.org/dist/sql-wasm.js';
@@ -340,19 +359,16 @@
                 s.onerror = reject;
                 document.head.appendChild(s);
             });
-
             await initSqlJs();
             setStatus('active', 'SQLite ativo (fallback)');
             btnRun.disabled = false;
             dbReady = true;
             return;
         } catch (err) {
-            console.error('sql.js also failed:', err.message);
+            console.error('sql.js failed:', err.message);
         }
-
-        // Both failed
         setStatus('error', 'Erro ao carregar banco');
-        resultsEl.innerHTML = `<div class="pg-error">Não foi possível inicializar o banco de dados.<br>Tente usar Chrome, Firefox ou Edge na versão mais recente.<br><br>Erro: verifique o console do navegador (F12) para mais detalhes.</div>`;
+        resultsEl.innerHTML = `<div class="pg-error">Não foi possível inicializar o banco de dados.<br>Tente um browser moderno (Chrome, Firefox, Edge, Safari).<br><br>Verifique o console (F12) para detalhes.</div>`;
     }
 
     initDB();
@@ -363,129 +379,50 @@
 
     async function runQuery() {
         const sql = editorEl.value.trim();
-        if (!sql || !dbReady) return;
+        if (!sql || !dbReady || isRunning) return;
 
+        isRunning = true;
         btnRun.disabled = true;
+        btnRun.textContent = '⏳ Executando...';
         timeEl.textContent = '';
         resultsEl.innerHTML = '<div class="pg-empty"><div class="pg-spinner"></div><p>Executando...</p></div>';
 
         const t0 = performance.now();
 
         try {
-            let rows = [];
-            let colNames = [];
-            const isSelect = /^\s*(SELECT|WITH)\b/i.test(sql);
-
-            if (dbEngine === 'pglite') {
-                if (isSelect) {
-                    const result = await db.query(sql);
-                    rows = result.rows || [];
-                    if (rows.length > 0) colNames = Object.keys(rows[0]);
-                } else {
-                    await db.exec(sql);
-                }
-            } else {
-                // sql.js
-                const result = db.exec(sql);
-                if (result.length > 0) {
-                    colNames = result[0].columns;
-                    rows = result[0].values.map(vals => {
-                        const obj = {};
-                        colNames.forEach((c, i) => obj[c] = vals[i]);
-                        return obj;
-                    });
-                }
-            }
-
+            const { rows, colNames, isExec } = await executeSQL(sql);
             const elapsed = ((performance.now() - t0) / 1000).toFixed(3);
             timeEl.textContent = `${elapsed}s`;
 
-            if (!isSelect && dbEngine === 'pglite') {
+            if (isExec && rows.length === 0) {
                 resultsEl.innerHTML = '<div class="pg-results-info">Query executada com sucesso.</div>';
-                btnRun.disabled = false;
-                return;
-            }
-
-            if (rows.length === 0) {
+            } else if (rows.length === 0) {
                 resultsEl.innerHTML = `<div class="pg-results-info">0 linhas retornadas em ${elapsed}s.</div>`;
-                btnRun.disabled = false;
-                return;
+            } else {
+                resultsEl.innerHTML = renderResultTable(rows, colNames, elapsed);
+
+                if (activeChallenge && !isSolved(activeChallenge.id)) {
+                    markSolved(activeChallenge.id);
+                    updateProgress();
+                    renderChallenges();
+                    showToast(`✓ Desafio #${String(activeChallenge.id).padStart(2, '0')} resolvido!`);
+                }
             }
-
-            const totalRows = rows.length;
-            const truncated = totalRows > MAX_ROWS;
-            const displayRows = truncated ? rows.slice(0, MAX_ROWS) : rows;
-
-            let html = `<div class="pg-results-info"><strong>${totalRows}</strong> linha${totalRows !== 1 ? 's' : ''} em ${elapsed}s`;
-            if (truncated) html += ` <span class="pg-truncated">— exibindo ${MAX_ROWS} de ${totalRows}</span>`;
-            html += `</div>`;
-            html += '<div class="pg-table-scroll"><table class="pg-result-table"><thead><tr>';
-            colNames.forEach(c => html += `<th>${c}</th>`);
-            html += '</tr></thead><tbody>';
-
-            displayRows.forEach(row => {
-                html += '<tr>';
-                colNames.forEach(c => {
-                    let val = row[c];
-                    if (val === null || val === undefined) val = '<span class="null-val">NULL</span>';
-                    else if (typeof val === 'number') val = fmtNumber(val);
-                    html += `<td>${val}</td>`;
-                });
-                html += '</tr>';
-            });
-            html += '</tbody></table></div>';
-            resultsEl.innerHTML = html;
-
-            // Mark challenge solved
-            if (activeChallenge && !isSolved(activeChallenge.id) && rows.length > 0) {
-                markSolved(activeChallenge.id);
-                updateProgress();
-                renderChallenges();
-                showToast(`✓ Desafio #${String(activeChallenge.id).padStart(2, '0')} resolvido!`);
-            }
-
         } catch (err) {
             const elapsed = ((performance.now() - t0) / 1000).toFixed(3);
             timeEl.textContent = `${elapsed}s`;
             resultsEl.innerHTML = `<div class="pg-error">${err.message}</div>`;
         }
 
+        isRunning = false;
         btnRun.disabled = false;
+        btnRun.textContent = '▶ Executar';
     }
 
-    // ── Event Listeners (always active) ──
-    btnRun.addEventListener('click', () => {
-        if (dbReady) runQuery();
-        else showToast('Banco ainda carregando, aguarde...');
-    });
+    // ══════════════════════════════════════
+    // AUTOCOMPLETE (defined before listeners)
+    // ══════════════════════════════════════
 
-    btnClear.addEventListener('click', () => {
-        editorEl.value = '';
-        editorEl.focus();
-    });
-
-    btnClearResults.addEventListener('click', () => {
-        resultsEl.innerHTML = '<div class="pg-empty"><div class="pg-empty-icon">🔍</div><p>Resultados limpos</p></div>';
-        timeEl.textContent = '';
-    });
-
-    editorEl.addEventListener('keydown', (e) => {
-        // Autocomplete gets priority
-        if (acBox.style.display !== 'none') return;
-
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            e.preventDefault();
-            if (dbReady) runQuery();
-        }
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const s = editorEl.selectionStart;
-            editorEl.value = editorEl.value.substring(0, s) + '  ' + editorEl.value.substring(editorEl.selectionEnd);
-            editorEl.selectionStart = editorEl.selectionEnd = s + 2;
-        }
-    });
-
-    // ── Autocomplete ──
     const SQL_KEYWORDS = [
         'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'BETWEEN', 'LIKE', 'IS',
         'NULL', 'AS', 'ON', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS',
@@ -495,33 +432,28 @@
         'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'ROUND', 'STDDEV', 'DISTINCT',
         'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'WITH', 'UNION', 'ALL', 'EXISTS',
         'CAST', 'COALESCE', 'NUMERIC', 'INTEGER', 'VARCHAR', 'TEXT', 'BOOLEAN',
-        'TRUE', 'FALSE', 'SERIAL', 'AUTOINCREMENT'
+        'TRUE', 'FALSE'
     ];
-    const TABLE_NAMES = SCHEMA_INFO.map(t => t.name);
-    const COL_NAMES = [...new Set(SCHEMA_INFO.flatMap(t => t.cols.map(c => c[0])))];
-    // Map table → columns for contextual suggestions
-    const TABLE_COLS = {};
-    SCHEMA_INFO.forEach(t => { TABLE_COLS[t.name] = t.cols.map(c => c[0]); });
 
     const acBox = document.createElement('div');
     acBox.className = 'pg-autocomplete';
+    acBox.setAttribute('role', 'listbox');
     acBox.style.display = 'none';
     editorEl.parentElement.style.position = 'relative';
     editorEl.parentElement.appendChild(acBox);
 
     let acItems = [];
     let acIndex = -1;
+    let acDebounce = null;
 
     function getWordAtCursor() {
         const pos = editorEl.selectionStart;
         const text = editorEl.value.substring(0, pos);
-        const match = text.match(/[\w_]+$/);
+        const match = text.match(/[\w_\u00C0-\u024F]+$/);
         return match ? { word: match[0], start: pos - match[0].length, end: pos } : null;
     }
 
-    // Extract table names from FROM/JOIN clauses in current query
     function getTablesInQuery() {
-        const text = editorEl.value.toUpperCase();
         const tables = [];
         const re = /\b(?:FROM|JOIN)\s+([\w_]+)/gi;
         let m;
@@ -537,8 +469,6 @@
         if (!info || info.word.length < 2) { acBox.style.display = 'none'; return; }
 
         const prefix = info.word.toUpperCase();
-
-        // Build contextual word list: prioritize columns from tables in query
         const queryTables = getTablesInQuery();
         const contextCols = [...new Set(queryTables.flatMap(t => TABLE_COLS[t] || []))];
         const otherCols = COL_NAMES.filter(c => !contextCols.includes(c));
@@ -553,7 +483,7 @@
             const isSql = SQL_KEYWORDS.includes(item.toUpperCase());
             const isTable = TABLE_NAMES.includes(item);
             const tag = isSql ? 'keyword' : isTable ? 'table' : 'column';
-            return `<div class="pg-ac-item ${i === 0 ? 'active' : ''}" data-index="${i}">
+            return `<div class="pg-ac-item ${i === 0 ? 'active' : ''}" data-index="${i}" role="option">
                 <span class="pg-ac-tag pg-ac-${tag}">${tag}</span> ${item}
             </div>`;
         }).join('');
@@ -576,31 +506,78 @@
         if (item) applyAutocomplete(+item.dataset.index);
     });
 
-    editorEl.addEventListener('input', showAutocomplete);
-
-    editorEl.addEventListener('keydown', (e) => {
-        if (acBox.style.display === 'none') return;
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            acIndex = Math.min(acIndex + 1, acItems.length - 1);
-            acBox.querySelectorAll('.pg-ac-item').forEach((el, i) => el.classList.toggle('active', i === acIndex));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            acIndex = Math.max(acIndex - 1, 0);
-            acBox.querySelectorAll('.pg-ac-item').forEach((el, i) => el.classList.toggle('active', i === acIndex));
-        } else if (e.key === 'Tab' || e.key === 'Enter') {
-            if (acItems.length > 0 && acIndex >= 0) {
-                e.preventDefault();
-                applyAutocomplete(acIndex);
-            }
-        } else if (e.key === 'Escape') {
-            acBox.style.display = 'none';
-        }
+    editorEl.addEventListener('input', () => {
+        clearTimeout(acDebounce);
+        acDebounce = setTimeout(showAutocomplete, 50);
     });
 
     editorEl.addEventListener('blur', () => {
         setTimeout(() => { acBox.style.display = 'none'; }, 150);
+    });
+
+    // ══════════════════════════════════════
+    // EVENT LISTENERS (unified, after acBox)
+    // ══════════════════════════════════════
+
+    btnRun.addEventListener('click', () => {
+        if (dbReady) runQuery();
+        else showToast('Banco ainda carregando, aguarde...');
+    });
+
+    btnClear.addEventListener('click', () => {
+        editorEl.value = '';
+        editorEl.focus();
+    });
+
+    btnClearResults.addEventListener('click', () => {
+        resultsEl.innerHTML = '<div class="pg-empty"><div class="pg-empty-icon">🔍</div><p>Resultados limpos</p></div>';
+        timeEl.textContent = '';
+    });
+
+    // Unified keydown: autocomplete priority, then shortcuts
+    editorEl.addEventListener('keydown', (e) => {
+        const acVisible = acBox.style.display !== 'none';
+
+        if (acVisible) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                acIndex = Math.min(acIndex + 1, acItems.length - 1);
+                acBox.querySelectorAll('.pg-ac-item').forEach((el, i) => el.classList.toggle('active', i === acIndex));
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                acIndex = Math.max(acIndex - 1, 0);
+                acBox.querySelectorAll('.pg-ac-item').forEach((el, i) => el.classList.toggle('active', i === acIndex));
+                return;
+            }
+            if (e.key === 'Tab' || e.key === 'Enter') {
+                if (acItems.length > 0 && acIndex >= 0) {
+                    e.preventDefault();
+                    applyAutocomplete(acIndex);
+                    return;
+                }
+            }
+            if (e.key === 'Escape') {
+                acBox.style.display = 'none';
+                return;
+            }
+        }
+
+        // Ctrl/Cmd + Enter → run query
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            if (dbReady) runQuery();
+            return;
+        }
+
+        // Tab → indent
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const s = editorEl.selectionStart;
+            editorEl.value = editorEl.value.substring(0, s) + '  ' + editorEl.value.substring(editorEl.selectionEnd);
+            editorEl.selectionStart = editorEl.selectionEnd = s + 2;
+        }
     });
 
     // ── Theme Toggle ──
@@ -623,6 +600,7 @@
         }
     });
 
+    // ── Toast ──
     function showToast(msg) {
         toastEl.textContent = msg;
         toastEl.classList.add('show');

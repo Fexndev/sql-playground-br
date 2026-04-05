@@ -94,4 +94,10 @@
     --c-automacao: #16a34a;
     --c-automacao-bg: rgba(22,163,74,.06);
     --c-automacao-bd: rgba(22,163,74,.18);
+
+    --c-tech-rgb: 13,148,136;
+    --c-design-rgb: 124,58,237;
+    --c-trafego-rgb: 217,119,6;
+    --c-social-rgb: 37,99,235;
+    --c-automacao-rgb: 22,163,74;
 }

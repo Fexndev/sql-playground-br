@@ -74,6 +74,7 @@ CREATE TABLE emendas (
 function _pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function _rand(min, max) { return +(min + Math.random() * (max - min)).toFixed(2); }
 function _randInt(min, max) { return Math.floor(min + Math.random() * (max - min + 1)); }
+function _esc(str) { return str.replace(/'/g, "''"); }
 
 function generateSeedData() {
     const statements = [];
@@ -168,7 +169,7 @@ function generateSeedData() {
     const tipos_emenda = ['Individual', 'Bancada', 'Comissão', 'Relator'];
     const areas_emenda = ['Saúde', 'Educação', 'Infraestrutura', 'Assistência Social', 'Agricultura', 'Segurança Pública', 'Cultura', 'Esporte', 'Ciência e Tecnologia', 'Meio Ambiente'];
 
-    const anos = [2022, 2023, 2024];
+    const anos = [2023, 2024, 2025];
 
     // ── GASTOS_GOVERNO (600 linhas) ──
     for (let i = 0; i < 600; i++) {
@@ -177,7 +178,8 @@ function generateSeedData() {
         const emp = _rand(100000, 50000000);
         const liq = +(emp * _rand(0.7, 1.0)).toFixed(2);
         const pago = +(liq * _rand(0.6, 1.0)).toFixed(2);
-        statements.push(`INSERT INTO gastos_governo (orgao,funcao,subfuncao,programa,acao,valor_empenhado,valor_liquidado,valor_pago,ano,mes) VALUES ('${_pick(orgaos)}','${funcao}','${_pick(subs)}','Programa de ${funcao}','Ação de ${_pick(subs)}',${emp},${liq},${pago},${_pick(anos)},${_randInt(1,12)});`);
+        const sub = _pick(subs);
+        statements.push(`INSERT INTO gastos_governo (orgao,funcao,subfuncao,programa,acao,valor_empenhado,valor_liquidado,valor_pago,ano,mes) VALUES ('${_esc(_pick(orgaos))}','${_esc(funcao)}','${_esc(sub)}','${_esc('Programa de ' + funcao)}','${_esc('Ação de ' + sub)}',${emp},${liq},${pago},${_pick(anos)},${_randInt(1,12)});`);
     }
 
     // ── SERVIDORES (800 linhas) ──
@@ -189,14 +191,14 @@ function generateSeedData() {
         const desc = +(bruto * _rand(0.15, 0.35)).toFixed(2);
         const liq = +(bruto - desc).toFixed(2);
         const cargo = _pick(cargos);
-        statements.push(`INSERT INTO servidores (nome,orgao,cargo,funcao,remuneracao_basica,gratificacao,total_bruto,desconto,total_liquido,uf) VALUES ('${nome.replace(/'/g,"''")}','${_pick(orgaos)}','${cargo}','${cargo}',${rem},${grat},${bruto},${desc},${liq},'${_pick(ufs)}');`);
+        statements.push(`INSERT INTO servidores (nome,orgao,cargo,funcao,remuneracao_basica,gratificacao,total_bruto,desconto,total_liquido,uf) VALUES ('${_esc(nome)}','${_esc(_pick(orgaos))}','${_esc(cargo)}','${_esc(cargo)}',${rem},${grat},${bruto},${desc},${liq},'${_pick(ufs)}');`);
     }
 
     // ── TRANSFERENCIAS (700 linhas) ──
     for (let i = 0; i < 700; i++) {
         const uf = _pick(ufs);
         const munis = municipios[uf] || ['Capital'];
-        statements.push(`INSERT INTO transferencias (uf,municipio,tipo_transferencia,programa,valor,ano,mes) VALUES ('${uf}','${_pick(munis)}','${_pick(tipos_transferencia)}','${_pick(programas_transf)}',${_rand(50000, 20000000)},${_pick(anos)},${_randInt(1,12)});`);
+        statements.push(`INSERT INTO transferencias (uf,municipio,tipo_transferencia,programa,valor,ano,mes) VALUES ('${uf}','${_esc(_pick(munis))}','${_esc(_pick(tipos_transferencia))}','${_esc(_pick(programas_transf))}',${_rand(50000, 20000000)},${_pick(anos)},${_randInt(1,12)});`);
     }
 
     // ── EMENDAS (500 linhas) ──
@@ -208,7 +210,7 @@ function generateSeedData() {
         const emp = _rand(100000, 15000000);
         const pago = +(emp * _rand(0.3, 1.0)).toFixed(2);
         const autor = _pick(parlamentares);
-        statements.push(`INSERT INTO emendas (autor,partido,uf,tipo_emenda,area,valor_empenhado,valor_pago,ano) VALUES ('${autor.replace(/'/g,"''")}','${_pick(partidos)}','${_pick(ufs)}','${_pick(tipos_emenda)}','${_pick(areas_emenda)}',${emp},${pago},${_pick(anos)});`);
+        statements.push(`INSERT INTO emendas (autor,partido,uf,tipo_emenda,area,valor_empenhado,valor_pago,ano) VALUES ('${_esc(autor)}','${_esc(_pick(partidos))}','${_pick(ufs)}','${_esc(_pick(tipos_emenda))}','${_esc(_pick(areas_emenda))}',${emp},${pago},${_pick(anos)});`);
     }
 
     return statements.join('\n');

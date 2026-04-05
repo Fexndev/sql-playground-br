@@ -24,7 +24,7 @@
             <span class="pg-badge">Portal da Transparência</span>
         </div>
         <div class="pg-header-right">
-            <button class="pg-theme-toggle" id="themeToggle" title="Alternar tema">🌙</button>
+            <button class="pg-theme-toggle" id="themeToggle" title="Alternar tema" aria-label="Alternar tema claro/escuro">🌙</button>
             <span class="pg-status pg-status--loading" id="dbStatus">Carregando...</span>
             <span class="pg-progress">Resolvidos: <strong id="progressCount">0/10</strong></span>
         </div>
@@ -47,6 +47,8 @@
             <p class="pg-sidebar-hint">Clique em uma tabela para explorar</p>
             <div id="schemaList"></div>
         </div>
+
+        <hr class="pg-sidebar-divider">
 
         <div>
             <div class="pg-sidebar-title">🏆 Desafios</div>
@@ -77,7 +79,7 @@
                 spellcheck="false"></textarea>
             <div class="pg-run-row">
                 <button class="pg-btn-run" id="btnRun" disabled>▶ Executar</button>
-                <span class="pg-shortcut">Ctrl+Enter</span>
+                <span class="pg-shortcut" id="shortcutHint">Ctrl+Enter</span>
                 <span class="pg-time" id="queryTime"></span>
             </div>
         </div>
@@ -97,7 +99,7 @@
 </div>
 
 <!-- Toast -->
-<div class="pg-toast" id="toast"></div>
+<div class="pg-toast" id="toast" role="alert"></div>
 
 <!-- Scripts (NOT modules — all global scope) -->
 <script src="js/seed.js"></script>

@@ -6,9 +6,9 @@ const CHALLENGES = [
     {
         id: 1, level: 'iniciante',
         title: 'Cadê o dinheiro?',
-        question: 'Quais são os 10 órgãos do governo federal que mais gastaram em 2024? Mostre o órgão e o total pago. Prepare-se pra ver uns números com muitos zeros.',
-        hint: 'Use SUM(valor_pago) com GROUP BY orgao. Filtre WHERE ano = 2024 e ORDER BY DESC com LIMIT 10.',
-        solution: `SELECT orgao, SUM(valor_pago) AS total_pago\nFROM gastos_governo\nWHERE ano = 2024\nGROUP BY orgao\nORDER BY total_pago DESC\nLIMIT 10;`
+        question: 'Quais são os 10 órgãos do governo federal que mais gastaram em 2025? Mostre o órgão e o total pago. Prepare-se pra ver uns números com muitos zeros.',
+        hint: 'Use SUM(valor_pago) com GROUP BY orgao. Filtre WHERE ano = 2025 e ORDER BY DESC com LIMIT 10.',
+        solution: `SELECT orgao, SUM(valor_pago) AS total_pago\nFROM gastos_governo\nWHERE ano = 2025\nGROUP BY orgao\nORDER BY total_pago DESC\nLIMIT 10;`
     },
     {
         id: 2, level: 'iniciante',
@@ -27,9 +27,9 @@ const CHALLENGES = [
     {
         id: 4, level: 'intermediario',
         title: 'Quem recebe mais da União?',
-        question: 'Qual o total de transferências por UF em 2024? Descubra quais estados são os queridinhos do governo federal.',
-        hint: 'SUM(valor) com GROUP BY uf, filtre por ano = 2024.',
-        solution: `SELECT uf, SUM(valor) AS total_recebido\nFROM transferencias\nWHERE ano = 2024\nGROUP BY uf\nORDER BY total_recebido DESC;`
+        question: 'Qual o total de transferências por UF em 2025? Descubra quais estados são os queridinhos do governo federal.',
+        hint: 'SUM(valor) com GROUP BY uf, filtre por ano = 2025.',
+        solution: `SELECT uf, SUM(valor) AS total_recebido\nFROM transferencias\nWHERE ano = 2025\nGROUP BY uf\nORDER BY total_recebido DESC;`
     },
     {
         id: 5, level: 'intermediario',
@@ -55,16 +55,16 @@ const CHALLENGES = [
     {
         id: 8, level: 'avancado',
         title: 'Desigualdade federal',
-        question: 'Quais órgãos têm a maior disparidade salarial entre seus servidores? Use desvio padrão do salário bruto. Só considere órgãos com 10+ servidores.',
+        question: 'Quais órgãos têm a maior disparidade salarial entre seus servidores? Use desvio padrão do salário bruto. Só considere órgãos com 10+ servidores. <em style="color:var(--g3);font-size:.75rem">(STDDEV requer PostgreSQL; no SQLite use MAX-MIN)</em>',
         hint: 'STDDEV(total_bruto) com GROUP BY orgao. HAVING COUNT(*) >= 10.',
         solution: `SELECT orgao,\n       COUNT(*) AS servidores,\n       ROUND(MIN(total_bruto), 2) AS menor,\n       ROUND(MAX(total_bruto), 2) AS maior,\n       ROUND(STDDEV(total_bruto)::numeric, 2) AS desvio_padrao\nFROM servidores\nGROUP BY orgao\nHAVING COUNT(*) >= 10\nORDER BY desvio_padrao DESC;`
     },
     {
         id: 9, level: 'avancado',
         title: 'Natal do governo',
-        question: 'Evolução mensal dos gastos pagos em 2024 por função. Dezembro é quando o governo abre a torneira? Descubra os picos sazonais.',
+        question: 'Evolução mensal dos gastos pagos em 2025 por função. Dezembro é quando o governo abre a torneira? Descubra os picos sazonais.',
         hint: 'GROUP BY funcao, mes. Ordene por funcao, mes.',
-        solution: `SELECT funcao, mes,\n       SUM(valor_pago) AS total_pago\nFROM gastos_governo\nWHERE ano = 2024\nGROUP BY funcao, mes\nORDER BY funcao, mes;`
+        solution: `SELECT funcao, mes,\n       SUM(valor_pago) AS total_pago\nFROM gastos_governo\nWHERE ano = 2025\nGROUP BY funcao, mes\nORDER BY funcao, mes;`
     },
     {
         id: 10, level: 'avancado',
@@ -76,7 +76,7 @@ const CHALLENGES = [
 ];
 
 const QUICK_EXAMPLES = [
-    { label: 'Quanto gastamos em Saúde?', query: "SELECT SUM(valor_pago) AS total_saude FROM gastos_governo WHERE funcao = 'Saúde' AND ano = 2024;" },
+    { label: 'Quanto gastamos em Saúde?', query: "SELECT SUM(valor_pago) AS total_saude FROM gastos_governo WHERE funcao = 'Saúde' AND ano = 2025;" },
     { label: 'Servidores mais bem pagos', query: "SELECT nome, cargo, orgao, total_bruto FROM servidores ORDER BY total_bruto DESC LIMIT 20;" },
     { label: 'Pra onde vão as emendas?', query: "SELECT area, COUNT(*) AS qtd, SUM(valor_pago) AS total FROM emendas GROUP BY area ORDER BY total DESC;" },
     { label: 'Transferências por estado', query: "SELECT uf, COUNT(*) AS qtd, SUM(valor) AS total FROM transferencias GROUP BY uf ORDER BY total DESC;" },
