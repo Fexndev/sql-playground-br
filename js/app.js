@@ -21,7 +21,7 @@
 
     // ── Init PGlite ──
     try {
-        const { PGlite } = await import('https://cdn.jsdelivr.net/npm/@electric-sql/pglite/dist/index.js');
+        const { PGlite } = await import('@electric-sql/pglite');
         db = new PGlite();
 
         // Run schema
@@ -171,27 +171,37 @@
 
         const t0 = performance.now();
         try {
-            const result = await db.exec(sql);
+            // Use query() for SELECT statements, exec() for others
+            const isSelect = /^\s*(SELECT|WITH)\b/i.test(sql);
+            let rows = [];
+            let colNames = [];
+
+            if (isSelect) {
+                const result = await db.query(sql);
+                rows = result.rows || [];
+                if (rows.length > 0) {
+                    colNames = Object.keys(rows[0]);
+                }
+            } else {
+                await db.exec(sql);
+            }
+
             const elapsed = ((performance.now() - t0) / 1000).toFixed(3);
             timeEl.textContent = `${elapsed}s`;
 
-            if (!result || result.length === 0 || !result[0].fields) {
+            if (!isSelect) {
                 resultsEl.innerHTML = `
                     <div class="pg-results-info">Query executada com sucesso. <strong>Nenhum resultado retornado.</strong></div>`;
                 btnRun.disabled = false;
                 return;
             }
 
-            const { fields, rows } = result[result.length - 1];
-
-            if (!rows || rows.length === 0) {
+            if (rows.length === 0) {
                 resultsEl.innerHTML = `
-                    <div class="pg-results-info">Query executada. <strong>0 linhas</strong> retornadas.</div>`;
+                    <div class="pg-results-info">Query executada. <strong>0 linhas</strong> retornadas em ${elapsed}s.</div>`;
                 btnRun.disabled = false;
                 return;
             }
-
-            const colNames = fields.map(f => f.name);
 
             let html = `<div class="pg-results-info"><strong>${rows.length}</strong> linha${rows.length > 1 ? 's' : ''} retornada${rows.length > 1 ? 's' : ''} em ${elapsed}s</div>`;
             html += '<table class="pg-result-table"><thead><tr>';
@@ -217,7 +227,6 @@
                 markSolved(activeChallenge.id);
                 updateProgress();
                 renderChallenges();
-                // Re-highlight active
                 document.querySelectorAll('.pg-challenge').forEach(el => {
                     el.classList.toggle('active', +el.dataset.id === activeChallenge.id);
                 });
