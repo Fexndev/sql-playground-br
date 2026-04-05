@@ -11,6 +11,7 @@
     let dbEngine = null; // 'pglite' or 'sqljs'
     let dbReady = false;
     let activeChallenge = null;
+    const MAX_ROWS = 200;
 
     // ── DOM ──
     const $ = id => document.getElementById(id);
@@ -19,6 +20,7 @@
     const editorEl = $('editor');
     const btnRun = $('btnRun');
     const btnClear = $('btnClear');
+    const btnClearResults = $('btnClearResults');
     const resultsEl = $('results');
     const timeEl = $('queryTime');
     const progressEl = $('progressCount');
@@ -321,12 +323,18 @@
                 return;
             }
 
-            let html = `<div class="pg-results-info"><strong>${rows.length}</strong> linha${rows.length !== 1 ? 's' : ''} em ${elapsed}s</div>`;
+            const totalRows = rows.length;
+            const truncated = totalRows > MAX_ROWS;
+            const displayRows = truncated ? rows.slice(0, MAX_ROWS) : rows;
+
+            let html = `<div class="pg-results-info"><strong>${totalRows}</strong> linha${totalRows !== 1 ? 's' : ''} em ${elapsed}s`;
+            if (truncated) html += ` <span class="pg-truncated">— exibindo ${MAX_ROWS} de ${totalRows}</span>`;
+            html += `</div>`;
             html += '<div class="pg-table-scroll"><table class="pg-result-table"><thead><tr>';
             colNames.forEach(c => html += `<th>${c}</th>`);
             html += '</tr></thead><tbody>';
 
-            rows.forEach(row => {
+            displayRows.forEach(row => {
                 html += '<tr>';
                 colNames.forEach(c => {
                     let val = row[c];
@@ -367,7 +375,15 @@
         editorEl.focus();
     });
 
+    btnClearResults.addEventListener('click', () => {
+        resultsEl.innerHTML = '<div class="pg-empty"><div class="pg-empty-icon">🔍</div><p>Resultados limpos</p></div>';
+        timeEl.textContent = '';
+    });
+
     editorEl.addEventListener('keydown', (e) => {
+        // Autocomplete gets priority
+        if (acBox.style.display !== 'none') return;
+
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             e.preventDefault();
             if (dbReady) runQuery();
@@ -378,6 +394,102 @@
             editorEl.value = editorEl.value.substring(0, s) + '  ' + editorEl.value.substring(editorEl.selectionEnd);
             editorEl.selectionStart = editorEl.selectionEnd = s + 2;
         }
+    });
+
+    // ── Autocomplete ──
+    const SQL_KEYWORDS = [
+        'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'BETWEEN', 'LIKE', 'IS',
+        'NULL', 'AS', 'ON', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS',
+        'GROUP', 'BY', 'ORDER', 'ASC', 'DESC', 'HAVING', 'LIMIT', 'OFFSET',
+        'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP',
+        'ALTER', 'ADD', 'COLUMN', 'INDEX', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES',
+        'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'ROUND', 'STDDEV', 'DISTINCT',
+        'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'WITH', 'UNION', 'ALL', 'EXISTS',
+        'CAST', 'COALESCE', 'NUMERIC', 'INTEGER', 'VARCHAR', 'TEXT', 'BOOLEAN',
+        'TRUE', 'FALSE', 'SERIAL', 'AUTOINCREMENT'
+    ];
+    const TABLE_NAMES = SCHEMA_INFO.map(t => t.name);
+    const COL_NAMES = [...new Set(SCHEMA_INFO.flatMap(t => t.cols.map(c => c[0])))];
+    const ALL_WORDS = [...SQL_KEYWORDS, ...TABLE_NAMES, ...COL_NAMES];
+
+    const acBox = document.createElement('div');
+    acBox.className = 'pg-autocomplete';
+    acBox.style.display = 'none';
+    editorEl.parentElement.style.position = 'relative';
+    editorEl.parentElement.appendChild(acBox);
+
+    let acItems = [];
+    let acIndex = -1;
+
+    function getWordAtCursor() {
+        const pos = editorEl.selectionStart;
+        const text = editorEl.value.substring(0, pos);
+        const match = text.match(/[\w_]+$/);
+        return match ? { word: match[0], start: pos - match[0].length, end: pos } : null;
+    }
+
+    function showAutocomplete() {
+        const info = getWordAtCursor();
+        if (!info || info.word.length < 2) { acBox.style.display = 'none'; return; }
+
+        const prefix = info.word.toUpperCase();
+        acItems = ALL_WORDS.filter(w => w.toUpperCase().startsWith(prefix) && w.toUpperCase() !== prefix).slice(0, 8);
+
+        if (acItems.length === 0) { acBox.style.display = 'none'; return; }
+
+        acIndex = 0;
+        acBox.innerHTML = acItems.map((item, i) => {
+            const isSql = SQL_KEYWORDS.includes(item);
+            const isTable = TABLE_NAMES.includes(item);
+            const tag = isSql ? 'keyword' : isTable ? 'table' : 'column';
+            return `<div class="pg-ac-item ${i === 0 ? 'active' : ''}" data-index="${i}">
+                <span class="pg-ac-tag pg-ac-${tag}">${tag}</span> ${item}
+            </div>`;
+        }).join('');
+        acBox.style.display = 'block';
+    }
+
+    function applyAutocomplete(index) {
+        const info = getWordAtCursor();
+        if (!info || !acItems[index]) return;
+        const word = acItems[index];
+        editorEl.value = editorEl.value.substring(0, info.start) + word + editorEl.value.substring(info.end);
+        editorEl.selectionStart = editorEl.selectionEnd = info.start + word.length;
+        acBox.style.display = 'none';
+        editorEl.focus();
+    }
+
+    acBox.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const item = e.target.closest('.pg-ac-item');
+        if (item) applyAutocomplete(+item.dataset.index);
+    });
+
+    editorEl.addEventListener('input', showAutocomplete);
+
+    editorEl.addEventListener('keydown', (e) => {
+        if (acBox.style.display === 'none') return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            acIndex = Math.min(acIndex + 1, acItems.length - 1);
+            acBox.querySelectorAll('.pg-ac-item').forEach((el, i) => el.classList.toggle('active', i === acIndex));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            acIndex = Math.max(acIndex - 1, 0);
+            acBox.querySelectorAll('.pg-ac-item').forEach((el, i) => el.classList.toggle('active', i === acIndex));
+        } else if (e.key === 'Tab' || e.key === 'Enter') {
+            if (acItems.length > 0 && acIndex >= 0) {
+                e.preventDefault();
+                applyAutocomplete(acIndex);
+            }
+        } else if (e.key === 'Escape') {
+            acBox.style.display = 'none';
+        }
+    });
+
+    editorEl.addEventListener('blur', () => {
+        setTimeout(() => { acBox.style.display = 'none'; }, 150);
     });
 
     function showToast(msg) {
