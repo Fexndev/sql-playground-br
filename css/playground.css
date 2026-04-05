@@ -138,6 +138,51 @@
 }
 .pg-col-type { color: var(--g3); margin-left: .2rem; }
 
+/* Inspect button */
+.pg-btn-inspect {
+    display: block; width: 100%; margin-top: .5rem;
+    padding: .4rem; border-radius: 6px;
+    background: var(--accent-bg); border: 1px solid var(--accent-bd);
+    font-family: var(--sans); font-size: .65rem;
+    font-weight: 600; color: var(--accent);
+    cursor: pointer; transition: all .15s var(--ease);
+}
+.pg-btn-inspect:hover { background: rgba(94,234,212,.15); }
+
+/* Inspect view */
+.pg-inspect { padding: .5rem 0; }
+.pg-inspect-header {
+    display: flex; align-items: center; gap: .8rem;
+    margin-bottom: 1rem;
+}
+.pg-inspect-header h3 {
+    font-family: var(--mono); font-size: 1.1rem;
+    font-weight: 700; color: var(--accent);
+}
+.pg-inspect-count {
+    font-family: var(--mono); font-size: .7rem;
+    color: var(--g3); background: var(--bg-2);
+    padding: .2rem .6rem; border-radius: 4px;
+}
+.pg-inspect-section { margin-bottom: 1.5rem; }
+.pg-inspect-label {
+    font-family: var(--mono); font-size: .62rem;
+    font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--g3);
+    margin-bottom: .5rem;
+}
+.pg-btn-query-table {
+    margin-top: 1rem; padding: .5rem 1.2rem;
+    border-radius: var(--r); background: var(--bg-2);
+    border: 1px solid rgba(255,255,255,.06);
+    font-family: var(--sans); font-size: .75rem;
+    font-weight: 600; color: var(--g1);
+    cursor: pointer; transition: all .2s var(--ease);
+}
+.pg-btn-query-table:hover {
+    border-color: var(--accent-bd); color: var(--accent);
+}
+
 /* Challenges */
 .pg-challenge {
     background: var(--bg-2);

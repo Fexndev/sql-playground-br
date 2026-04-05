@@ -70,21 +70,24 @@
                 </div>
                 <div class="pg-table-cols">
                     ${t.cols.map(c => `<span class="pg-col">${c[0]} <span class="pg-col-type">${c[1]}</span></span>`).join('')}
+                    <button class="pg-btn-inspect" data-table="${t.name}">👁 Visualizar tabela</button>
                 </div>
             </div>
         `).join('');
 
-        // Click to toggle + insert query
+        // Click header to toggle
         el.addEventListener('click', (e) => {
             const header = e.target.closest('.pg-table-header');
-            if (!header) return;
-            const item = header.parentElement;
-            item.classList.toggle('open');
+            if (header) {
+                header.parentElement.classList.toggle('open');
+                return;
+            }
 
-            // Double click to insert SELECT
-            const tableName = header.dataset.table;
-            if (editorEl.value.trim() === '' || editorEl.value.trim() === editorEl.placeholder) {
-                editorEl.value = `SELECT * FROM ${tableName} LIMIT 10;`;
+            // Click "Visualizar tabela"
+            const inspectBtn = e.target.closest('.pg-btn-inspect');
+            if (inspectBtn) {
+                inspectTable(inspectBtn.dataset.table);
+                return;
             }
         });
     }
@@ -165,6 +168,86 @@
             if (!btn) return;
             editorEl.value = btn.dataset.query;
             if (dbReady) runQuery();
+        });
+    }
+
+    // ── Inspect Table ──
+    async function inspectTable(tableName) {
+        const table = SCHEMA_INFO.find(t => t.name === tableName);
+        if (!table) return;
+
+        // Build schema view
+        let html = `<div class="pg-inspect">`;
+        html += `<div class="pg-inspect-header">`;
+        html += `<h3>${tableName}</h3>`;
+        html += `<span class="pg-inspect-count">${table.count} registros</span>`;
+        html += `</div>`;
+
+        // Columns table
+        html += `<div class="pg-inspect-section">`;
+        html += `<div class="pg-inspect-label">Estrutura</div>`;
+        html += `<table class="pg-result-table"><thead><tr><th>Coluna</th><th>Tipo</th></tr></thead><tbody>`;
+        table.cols.forEach(c => {
+            html += `<tr><td style="color:var(--accent);font-family:var(--mono)">${c[0]}</td><td style="color:var(--g2)">${c[1]}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+
+        // Preview data if DB ready
+        if (dbReady) {
+            try {
+                let rows = [], colNames = [];
+                const sql = `SELECT * FROM ${tableName} LIMIT 20`;
+
+                if (dbEngine === 'pglite') {
+                    const result = await db.query(sql);
+                    rows = result.rows || [];
+                    if (rows.length > 0) colNames = Object.keys(rows[0]);
+                } else {
+                    const result = db.exec(sql);
+                    if (result.length > 0) {
+                        colNames = result[0].columns;
+                        rows = result[0].values.map(vals => {
+                            const obj = {};
+                            colNames.forEach((col, i) => obj[col] = vals[i]);
+                            return obj;
+                        });
+                    }
+                }
+
+                if (rows.length > 0) {
+                    html += `<div class="pg-inspect-section">`;
+                    html += `<div class="pg-inspect-label">Preview (20 primeiras linhas)</div>`;
+                    html += `<div class="pg-table-scroll"><table class="pg-result-table"><thead><tr>`;
+                    colNames.forEach(c => html += `<th>${c}</th>`);
+                    html += `</tr></thead><tbody>`;
+                    rows.forEach(row => {
+                        html += '<tr>';
+                        colNames.forEach(c => {
+                            let val = row[c];
+                            if (val === null || val === undefined) val = '<span class="null-val">NULL</span>';
+                            else if (typeof val === 'number') val = val.toLocaleString('pt-BR');
+                            html += `<td>${val}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    html += `</tbody></table></div></div>`;
+                }
+            } catch (err) {
+                html += `<div class="pg-error" style="margin-top:.8rem">${err.message}</div>`;
+            }
+        } else {
+            html += `<p style="color:var(--g3);font-size:.78rem;margin-top:.8rem">Banco ainda carregando — preview disponível em breve.</p>`;
+        }
+
+        html += `<button class="pg-btn-query-table" data-table="${tableName}">Consultar no editor →</button>`;
+        html += `</div>`;
+
+        resultsEl.innerHTML = html;
+
+        // Button to send to editor
+        resultsEl.querySelector('.pg-btn-query-table').addEventListener('click', () => {
+            editorEl.value = `SELECT * FROM ${tableName} LIMIT 50;`;
+            editorEl.focus();
         });
     }
 
