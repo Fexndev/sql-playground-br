@@ -36,6 +36,16 @@
 .pg-header-right {
     display: flex; align-items: center; gap: 1rem;
 }
+.pg-status {
+    font-family: var(--mono); font-size: .6rem;
+    font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; padding: .2rem .6rem;
+    border-radius: 50px;
+}
+.pg-status--loading { color: var(--c-trafego); background: var(--c-trafego-bg); }
+.pg-status--active { color: var(--c-automacao); background: var(--c-automacao-bg); }
+.pg-status--error { color: #f87171; background: rgba(248,113,113,.08); }
+
 .pg-progress {
     font-family: var(--mono); font-size: .7rem;
     color: var(--g2);
@@ -81,10 +91,12 @@
 }
 
 .pg-sidebar-title {
-    font-family: var(--mono);
-    font-size: .62rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 2px;
-    color: var(--g3); margin-bottom: .5rem;
+    font-size: .75rem; font-weight: 700;
+    color: var(--g2); margin-bottom: .3rem;
+}
+.pg-sidebar-hint {
+    font-size: .65rem; color: var(--g3);
+    margin-bottom: .6rem;
 }
 
 /* Schema Explorer */
@@ -115,12 +127,16 @@
 .pg-table-item.open .pg-table-arrow { transform: rotate(90deg); }
 
 .pg-table-cols {
-    display: none; padding: 0 .8rem .6rem;
-    font-family: var(--mono); font-size: .65rem;
-    color: var(--g2); line-height: 1.8;
+    display: none; padding: .4rem .8rem .6rem;
 }
-.pg-table-item.open .pg-table-cols { display: block; }
-.pg-col-type { color: var(--g3); margin-left: .3rem; }
+.pg-table-item.open .pg-table-cols { display: flex; flex-wrap: wrap; gap: .25rem; }
+.pg-col {
+    font-family: var(--mono); font-size: .62rem;
+    color: var(--g1); background: var(--bg-0);
+    padding: .15rem .45rem; border-radius: 4px;
+    white-space: nowrap;
+}
+.pg-col-type { color: var(--g3); margin-left: .2rem; }
 
 /* Challenges */
 .pg-challenge {
@@ -174,9 +190,22 @@
     display: none;
 }
 .pg-challenge-detail.visible { display: block; }
+.pg-challenge-detail-header {
+    display: flex; align-items: center; gap: .6rem;
+    margin-bottom: .5rem;
+}
+.pg-challenge-detail-header .pg-level { flex-shrink: 0; }
 .pg-challenge-detail h3 {
     font-size: .95rem; font-weight: 700;
+}
+.pg-challenge-actions {
+    display: flex; gap: .4rem; flex-wrap: wrap;
     margin-bottom: .5rem;
+}
+.pg-use-solution { color: var(--accent); border-color: var(--accent-bd); }
+.pg-solution pre {
+    margin: 0; white-space: pre-wrap; font-family: var(--mono);
+    font-size: .72rem;
 }
 .pg-challenge-question {
     font-size: .85rem; color: var(--g1);
@@ -217,6 +246,16 @@
     margin-bottom: .5rem;
     display: flex; align-items: center; justify-content: space-between;
 }
+.pg-editor-actions { display: flex; gap: .4rem; }
+.pg-btn-clear {
+    background: none; border: 1px solid rgba(255,255,255,.06);
+    border-radius: 4px; padding: .2rem .6rem;
+    font-family: var(--mono); font-size: .6rem;
+    color: var(--g3); cursor: pointer;
+    transition: all .15s var(--ease);
+}
+.pg-btn-clear:hover { color: var(--g1); border-color: rgba(255,255,255,.15); }
+
 .pg-editor {
     width: 100%; min-height: 140px; max-height: 300px;
     resize: vertical; padding: 1rem;
@@ -291,6 +330,27 @@
     font-family: var(--mono); font-size: .78rem;
     color: #f87171; line-height: 1.6;
     white-space: pre-wrap;
+}
+
+/* Table scroll */
+.pg-table-scroll { overflow-x: auto; }
+.null-val { color: var(--g3); font-style: italic; }
+
+/* Quick examples */
+.pg-quick-examples {
+    display: flex; flex-wrap: wrap; gap: .5rem;
+    justify-content: center; margin-top: 1.2rem;
+}
+.pg-example-btn {
+    background: var(--bg-2); border: 1px solid rgba(255,255,255,.06);
+    border-radius: var(--r); padding: .5rem 1rem;
+    font-family: var(--sans); font-size: .75rem;
+    font-weight: 600; color: var(--g1);
+    cursor: pointer; transition: all .2s var(--ease);
+}
+.pg-example-btn:hover {
+    border-color: var(--accent-bd); color: var(--accent);
+    background: var(--accent-bg); transform: translateY(-1px);
 }
 
 /* Empty */

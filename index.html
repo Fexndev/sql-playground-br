@@ -24,16 +24,16 @@
             <span class="pg-badge">Portal da Transparência</span>
         </div>
         <div class="pg-header-right">
+            <span class="pg-status pg-status--loading" id="dbStatus">Carregando...</span>
             <span class="pg-progress">Resolvidos: <strong id="progressCount">0/10</strong></span>
         </div>
     </div>
 </header>
 
-<!-- ── LOADING ── -->
+<!-- ── LOADING (inline, hidden by JS) ── -->
 <div class="pg-loading" id="loading">
     <div class="pg-spinner"></div>
-    <p>Inicializando PostgreSQL no browser...</p>
-    <small>Carregando PGlite + 2.600 registros do Portal da Transparência</small>
+    <p>Inicializando...</p>
 </div>
 
 <!-- ── APP ── -->
@@ -42,12 +42,13 @@
     <!-- Sidebar -->
     <aside class="pg-sidebar">
         <div>
-            <div class="pg-sidebar-title">Tabelas</div>
+            <div class="pg-sidebar-title">📊 Tabelas disponíveis</div>
+            <p class="pg-sidebar-hint">Clique em uma tabela para explorar</p>
             <div id="schemaList"></div>
         </div>
 
         <div>
-            <div class="pg-sidebar-title">Desafios</div>
+            <div class="pg-sidebar-title">🏆 Desafios</div>
             <div id="challengeList"></div>
         </div>
     </aside>
@@ -55,19 +56,25 @@
     <!-- Main -->
     <main class="pg-main">
 
-        <!-- Challenge detail (hidden until selected) -->
+        <!-- Challenge detail -->
         <div class="pg-challenge-detail" id="challengeDetail"></div>
 
         <!-- Editor -->
         <div class="pg-editor-wrap">
             <div class="pg-editor-label">
                 <span>Query SQL</span>
+                <div class="pg-editor-actions">
+                    <button class="pg-btn-clear" id="btnClear">Limpar</button>
+                </div>
             </div>
             <textarea class="pg-editor" id="editor"
-                placeholder="SELECT * FROM gastos_governo LIMIT 10;&#10;&#10;-- Explore as tabelas ou escolha um desafio ao lado"
+                placeholder="SELECT * FROM gastos_governo LIMIT 10;
+
+-- Explore as tabelas na barra lateral
+-- ou escolha um desafio pra começar"
                 spellcheck="false"></textarea>
             <div class="pg-run-row">
-                <button class="pg-btn-run" id="btnRun">▶ Executar</button>
+                <button class="pg-btn-run" id="btnRun" disabled>▶ Executar</button>
                 <span class="pg-shortcut">Ctrl+Enter</span>
                 <span class="pg-time" id="queryTime"></span>
             </div>
@@ -76,9 +83,11 @@
         <!-- Results -->
         <div class="pg-results" id="results">
             <div class="pg-empty">
-                <div class="pg-empty-icon">⌨</div>
-                <p>Escreva uma query e clique em Executar</p>
-                <small style="color:var(--g3)">ou escolha um desafio na barra lateral</small>
+                <div class="pg-empty-icon">🔍</div>
+                <p>Explore os dados do governo federal</p>
+                <small>Escolha um exemplo abaixo ou escreva sua própria query</small>
+
+                <div class="pg-quick-examples" id="quickExamples"></div>
             </div>
         </div>
 
@@ -88,17 +97,10 @@
 <!-- Toast -->
 <div class="pg-toast" id="toast"></div>
 
-<!-- Scripts -->
-<script type="importmap">
-{
-    "imports": {
-        "@electric-sql/pglite": "https://cdn.jsdelivr.net/npm/@electric-sql/pglite/dist/index.js"
-    }
-}
-</script>
+<!-- Scripts (NOT modules — all global scope) -->
 <script src="js/seed.js"></script>
 <script src="js/challenges.js"></script>
-<script type="module" src="js/app.js"></script>
+<script src="js/app.js"></script>
 
 </body>
 </html>
