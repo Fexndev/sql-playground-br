@@ -13,6 +13,12 @@
     let activeChallenge = null;
     const MAX_ROWS = 200;
 
+    function fmtNumber(val) {
+        if (!Number.isFinite(val)) return val;
+        if (Number.isInteger(val)) return val.toLocaleString('pt-BR');
+        return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     // ── DOM ──
     const $ = id => document.getElementById(id);
     const loadingEl = $('loading');
@@ -225,7 +231,7 @@
                         colNames.forEach(c => {
                             let val = row[c];
                             if (val === null || val === undefined) val = '<span class="null-val">NULL</span>';
-                            else if (typeof val === 'number') val = val.toLocaleString('pt-BR');
+                            else if (typeof val === 'number') val = fmtNumber(val);
                             html += `<td>${val}</td>`;
                         });
                         html += '</tr>';
@@ -422,7 +428,7 @@
                 colNames.forEach(c => {
                     let val = row[c];
                     if (val === null || val === undefined) val = '<span class="null-val">NULL</span>';
-                    else if (typeof val === 'number') val = val.toLocaleString('pt-BR');
+                    else if (typeof val === 'number') val = fmtNumber(val);
                     html += `<td>${val}</td>`;
                 });
                 html += '</tr>';
