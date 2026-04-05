@@ -1,0 +1,62 @@
+/* ══════════════════════════════════════
+   DESIGN TOKENS
+   Portfolio Fernando
+   ══════════════════════════════════════ */
+
+:root {
+    /* ── Backgrounds ── */
+    --bg-0: #0d1117;
+    --bg-1: #131922;
+    --bg-2: #1a2233;
+    --bg-3: #222d3f;
+
+    /* ── Accent (teal — default) ── */
+    --accent: #5eead4;
+    --accent-lt: #99f6e4;
+    --accent-dk: #2dd4bf;
+    --accent-bg: rgba(94,234,212,.08);
+    --accent-bd: rgba(94,234,212,.18);
+
+    /* ── Theme Colors (5 frentes) ── */
+    --c-tech:      #5eead4;
+    --c-tech-rgb:  94,234,212;
+    --c-tech-bg:   rgba(94,234,212,.08);
+    --c-tech-bd:   rgba(94,234,212,.18);
+
+    --c-design:      #a78bfa;
+    --c-design-rgb:  167,139,250;
+    --c-design-bg:   rgba(167,139,250,.08);
+    --c-design-bd:   rgba(167,139,250,.18);
+
+    --c-trafego:      #f0a050;
+    --c-trafego-rgb:  240,160,80;
+    --c-trafego-bg:   rgba(240,160,80,.08);
+    --c-trafego-bd:   rgba(240,160,80,.18);
+
+    --c-social:      #60a5fa;
+    --c-social-rgb:  96,165,250;
+    --c-social-bg:   rgba(96,165,250,.08);
+    --c-social-bd:   rgba(96,165,250,.18);
+
+    --c-automacao:      #4ade80;
+    --c-automacao-rgb:  74,222,128;
+    --c-automacao-bg:   rgba(74,222,128,.08);
+    --c-automacao-bd:   rgba(74,222,128,.18);
+
+    /* ── Text ── */
+    --white: #e6edf3;
+    --g1: #b0bec5;
+    --g2: #6e7a88;
+    --g3: #3b4654;
+
+    /* ── UI ── */
+    --r: 8px;
+    --ease: cubic-bezier(.25,.46,.45,.94);
+    --ease-out: cubic-bezier(0,.55,.45,1);
+    --max: 1100px;
+    --gap: 2.5rem;
+
+    /* ── Fonts ── */
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}

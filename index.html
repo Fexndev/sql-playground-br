@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Playground — Dados Públicos BR</title>
+    <meta name="description" content="Pratique SQL com dados reais do Portal da Transparência do governo federal brasileiro. PostgreSQL no browser, zero instalação.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/playground.css">
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="pg-header">
+    <div class="pg-header-inner">
+        <div class="pg-logo">
+            sql_playground<span class="cursor">_</span>
+            <span class="pg-badge">Portal da Transparência</span>
+        </div>
+        <div class="pg-header-right">
+            <span class="pg-progress">Resolvidos: <strong id="progressCount">0/10</strong></span>
+        </div>
+    </div>
+</header>
+
+<!-- ── LOADING ── -->
+<div class="pg-loading" id="loading">
+    <div class="pg-spinner"></div>
+    <p>Inicializando PostgreSQL no browser...</p>
+    <small>Carregando PGlite + 2.600 registros do Portal da Transparência</small>
+</div>
+
+<!-- ── APP ── -->
+<div class="pg-app" id="app">
+
+    <!-- Sidebar -->
+    <aside class="pg-sidebar">
+        <div>
+            <div class="pg-sidebar-title">Tabelas</div>
+            <div id="schemaList"></div>
+        </div>
+
+        <div>
+            <div class="pg-sidebar-title">Desafios</div>
+            <div id="challengeList"></div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="pg-main">
+
+        <!-- Challenge detail (hidden until selected) -->
+        <div class="pg-challenge-detail" id="challengeDetail"></div>
+
+        <!-- Editor -->
+        <div class="pg-editor-wrap">
+            <div class="pg-editor-label">
+                <span>Query SQL</span>
+            </div>
+            <textarea class="pg-editor" id="editor"
+                placeholder="SELECT * FROM gastos_governo LIMIT 10;&#10;&#10;-- Explore as tabelas ou escolha um desafio ao lado"
+                spellcheck="false"></textarea>
+            <div class="pg-run-row">
+                <button class="pg-btn-run" id="btnRun">▶ Executar</button>
+                <span class="pg-shortcut">Ctrl+Enter</span>
+                <span class="pg-time" id="queryTime"></span>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="pg-results" id="results">
+            <div class="pg-empty">
+                <div class="pg-empty-icon">⌨</div>
+                <p>Escreva uma query e clique em Executar</p>
+                <small style="color:var(--g3)">ou escolha um desafio na barra lateral</small>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Toast -->
+<div class="pg-toast" id="toast"></div>
+
+<!-- Scripts -->
+<script src="js/seed.js"></script>
+<script src="js/challenges.js"></script>
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>
